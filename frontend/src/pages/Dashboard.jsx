@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import Navbar from '../components/layout/Navbar'
 import FeedCard from '../components/feed/FeedCard'
@@ -28,6 +29,7 @@ const sendNotification = (userId, title, message, type = 'info') => {
 }
 
 export default function Dashboard({ user }) {
+  const navigate = useNavigate()
   const [showSaveModal, setShowSaveModal]   = useState(false)
   const [showChat, setShowChat]             = useState(false)
   const [showFeed, setShowFeed]             = useState(false)
@@ -89,9 +91,37 @@ export default function Dashboard({ user }) {
     }
   }, [items.length])
 
+  // ✅ Listen for shares when dashboard is already open (PWA message)
+useEffect(() => {
+  const handler = (e) => {
+    setSharedContent(e.detail)
+    setShowSaveModal(true)
+  }
+  window.addEventListener('cortex:share', handler)
+  return () => window.removeEventListener('cortex:share', handler)
+}, [])
+
+  // ✅ CHANGE 4 — Handle shared content from bookmarklet (URL params) AND PWA share target (sessionStorage)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const openSave = params.get('openSave')
+    const openSave    = params.get('openSave')
+    const sharedUrl   = params.get('sharedUrl')
+    const sharedTitle = params.get('sharedTitle')
+    const sharedNote  = params.get('sharedNote')
+
+    // From bookmarklet — comes via URL params directly
+    if (openSave && sharedUrl) {
+      setSharedContent({
+        url:     sharedUrl,
+        title:   sharedTitle || '',
+        content: sharedNote  || '',
+      })
+      setShowSaveModal(true)
+      window.history.replaceState({}, '', '/dashboard')
+      return
+    }
+
+    // From PWA share target — comes via sessionStorage
     const shared = sessionStorage.getItem('sharedContent')
     if (openSave && shared) {
       setSharedContent(JSON.parse(shared))
@@ -226,7 +256,6 @@ export default function Dashboard({ user }) {
 
               {/* Stats + Cmd+K hint */}
               <div className="flex items-center gap-3">
-                {/* ✅ Cmd+K hint button */}
                 <button onClick={() => setPaletteOpen(true)}
                   className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border border-white/5 text-gray-600 hover:text-gray-300 hover:border-white/10 transition text-xs"
                   style={{ background:'rgba(255,255,255,0.02)' }}>
@@ -321,7 +350,13 @@ export default function Dashboard({ user }) {
               <span>📤</span> Export
             </button>
 
-            {/* ✅ Cmd+K button (mobile) */}
+            {/* ✅ Bookmarklet install button */}
+            <button onClick={() => navigate('/bookmarklet')}
+              className="px-4 md:px-5 py-2.5 md:py-3.5 border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
+              <span>🔖</span> <span className="hidden sm:inline">Browser Button</span>
+            </button>
+
+            {/* Cmd+K mobile */}
             <button onClick={() => setPaletteOpen(true)}
               className="md:hidden px-4 py-2.5 border border-white/10 hover:bg-white/5 text-gray-500 rounded-2xl text-sm transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               ⌕ Search
@@ -406,7 +441,7 @@ export default function Dashboard({ user }) {
         </div>
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {showSaveModal && (
         <SaveModal user={user} prefill={sharedContent}
           onClose={() => { setShowSaveModal(false); setSharedContent(null) }}
@@ -435,7 +470,6 @@ export default function Dashboard({ user }) {
         milestone={milestone}
         onDone={() => setMilestone(null)}
       />
-
     </div>
   )
 }

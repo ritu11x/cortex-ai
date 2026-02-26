@@ -10,8 +10,10 @@ import NotFound from './pages/NotFound'
 import PageWrapper from './components/PageWrapper'
 import ErrorBoundary from './components/ErrorBoundary'
 import SplashScreen from './components/SplashScreen'
+import BookmarkletInstall from './pages/BookmarkletInstall'
+import ShareTarget from './pages/ShareTarget'
 
-// ✅ ProtectedRoute
+// ✅ Protimport BookmarkletInstall from './pages/BookmarkletInstall'ectedRoute
 function ProtectedRoute({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -83,6 +85,8 @@ function App() {
       {showApp && (
         <BrowserRouter>
           <Routes>
+            <Route path="/bookmarklet" element={<BookmarkletInstall />} />
+            <Route path="/save" element={<ShareTarget />} />
             <Route path="/"
               element={user ? <Navigate to="/dashboard" /> : <Landing />} />
 
