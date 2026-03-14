@@ -1,45 +1,50 @@
-// Cortex Service Worker — PWA + Mobile Share Target
+// Cortex Service Worker — enables PWA + Share Target
 const CACHE = 'cortex-v1'
 
-self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', e => e.waitUntil(clients.claim()))
+// Install
+self.addEventListener('install', e => {
+  self.skipWaiting()
+})
 
-// ✅ Handle share from mobile apps (YouTube, Instagram, Chrome etc.)
+// Activate
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim())
+})
+
+// ✅ Handle share from other apps (Instagram, YouTube, Chrome etc.)
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url)
 
-  if (url.pathname === '/save') {
+  // When user shares TO Cortex from another app
+  if (url.pathname === '/save' && e.request.method === 'GET') {
+    const sharedUrl   = url.searchParams.get('url')   || ''
+    const sharedTitle = url.searchParams.get('title') || ''
+    const sharedText  = url.searchParams.get('text')  || ''
+
+    // Store shared content then redirect to dashboard
     e.respondWith((async () => {
-      // Get shared params
-      const sharedUrl   = url.searchParams.get('url')   || ''
-      const sharedTitle = url.searchParams.get('title') || ''
-      const sharedText  = url.searchParams.get('text')  || ''
+      const allClients = await clients.matchAll({ type: 'window' })
 
-      // Try to pass to existing open dashboard window
-      const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true })
-
+      // If dashboard already open — send message to it
       for (const client of allClients) {
         if (client.url.includes('/dashboard')) {
           client.postMessage({
             type: 'SHARE_TARGET',
-            url:   sharedUrl || sharedText,
+            url: sharedUrl || sharedText,
             title: sharedTitle,
-            text:  sharedText,
           })
-          await client.focus()
+          client.focus()
           return Response.redirect('/dashboard?openSave=true', 302)
         }
       }
 
-      // No dashboard open — go to /save route which handles the redirect
-      const redirectUrl = `/save?url=${encodeURIComponent(sharedUrl)}&title=${encodeURIComponent(sharedTitle)}&text=${encodeURIComponent(sharedText)}`
+      // Otherwise redirect to dashboard with params
+      const redirectUrl = `/dashboard?openSave=true&sharedUrl=${encodeURIComponent(sharedUrl || sharedText)}&sharedTitle=${encodeURIComponent(sharedTitle)}`
       return Response.redirect(redirectUrl, 302)
     })())
     return
   }
 
-  // Default: network first, cache fallback
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
-  )
+  // Default: network first
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)))
 })
