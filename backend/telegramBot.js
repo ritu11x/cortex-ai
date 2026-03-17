@@ -54,26 +54,28 @@ Return this exact JSON format:
   "source": "one of: youtube, instagram, twitter, tiktok, article, other"
 }`
 
-  // ✅ Using FREE Gemini API
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
-      }),
-    }
-  )
+  // ✅ FREE Groq API
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+      temperature: 0.3,
+    }),
+  })
 
   const data = await res.json()
 
-  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-    throw new Error('Gemini returned no response: ' + JSON.stringify(data))
+  if (!data.choices?.[0]?.message?.content) {
+    throw new Error('Groq returned no response: ' + JSON.stringify(data))
   }
 
-  const raw = data.candidates[0].content.parts[0].text.trim()
+  const raw = data.choices[0].message.content.trim()
   const clean = raw.replace(/```json|```/g, '').trim()
   return JSON.parse(clean)
 }
