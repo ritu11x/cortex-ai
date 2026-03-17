@@ -58,7 +58,7 @@ Return this exact JSON format:
 }`
 
   const response = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-opus-4-5-20251101',
     max_tokens: 500,
     messages: [{ role: 'user', content: prompt }],
   })
