@@ -1,17 +1,14 @@
 // backend/telegramBot.js
-// Run this alongside your Express server
 
 const { createClient } = require('@supabase/supabase-js')
-const Anthropic = require('@anthropic-ai/sdk')
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
-const WEBHOOK_URL = process.env.BACKEND_URL // your Railway URL
+const SUPABASE_URL   = process.env.SUPABASE_URL
+const SUPABASE_KEY   = process.env.SUPABASE_SERVICE_KEY
+const GEMINI_KEY     = process.env.GEMINI_API_KEY
+const WEBHOOK_URL    = process.env.BACKEND_URL
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY })
 
 // ── Telegram API helper ──────────────────────────────────────
 async function telegramAPI(method, body) {
@@ -23,7 +20,7 @@ async function telegramAPI(method, body) {
   return res.json()
 }
 
-// ── Send message to user ─────────────────────────────────────
+// ── Send message ─────────────────────────────────────────────
 async function sendMessage(chatId, text, extra = {}) {
   return telegramAPI('sendMessage', {
     chat_id: chatId,
@@ -33,18 +30,18 @@ async function sendMessage(chatId, text, extra = {}) {
   })
 }
 
-// ── Extract URL from text ────────────────────────────────────
+// ── Extract URL ──────────────────────────────────────────────
 function extractURL(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   const matches = text.match(urlRegex)
   return matches ? matches[0] : null
 }
 
-// ── AI Summarize ─────────────────────────────────────────────
+// ── AI Summarize using FREE Gemini ───────────────────────────
 async function summarizeWithAI(url, text) {
   const prompt = `You are an AI that organizes saved content for a second brain app.
 
-Analyze this saved content and return ONLY valid JSON:
+Analyze this saved content and return ONLY valid JSON with no extra text:
 URL: ${url}
 Additional text: ${text || 'none'}
 
@@ -57,25 +54,38 @@ Return this exact JSON format:
   "source": "one of: youtube, instagram, twitter, tiktok, article, other"
 }`
 
-  const response = await anthropic.messages.create({
-    model: 'claude-opus-4-5-20251101',
-    max_tokens: 500,
-    messages: [{ role: 'user', content: prompt }],
-  })
+  // ✅ Using FREE Gemini API
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
+      }),
+    }
+  )
 
-  const raw = response.content[0].text.trim()
+  const data = await res.json()
+
+  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    throw new Error('Gemini returned no response: ' + JSON.stringify(data))
+  }
+
+  const raw = data.candidates[0].content.parts[0].text.trim()
   const clean = raw.replace(/```json|```/g, '').trim()
   return JSON.parse(clean)
 }
 
-// ── Handle incoming Telegram message ────────────────────────
+// ── Handle incoming message ──────────────────────────────────
 async function handleMessage(message) {
-  const chatId = message.chat.id
-  const text = message.text || ''
+  const chatId        = message.chat.id
+  const text          = message.text || ''
   const telegramUserId = message.from.id.toString()
-  const firstName = message.from.first_name || 'there'
+  const firstName     = message.from.first_name || 'there'
 
-  // ── /start command ───────────────────────────────────────
+  // /start
   if (text === '/start') {
     await sendMessage(chatId,
       `🧠 <b>Welcome to Cortex AI Bot!</b>\n\n` +
@@ -89,13 +99,12 @@ async function handleMessage(message) {
     return
   }
 
-  // ── /help command ────────────────────────────────────────
+  // /help
   if (text === '/help') {
     await sendMessage(chatId,
       `🧠 <b>Cortex Bot Help</b>\n\n` +
       `<b>Commands:</b>\n` +
       `/start — Welcome message\n` +
-      `/connect — Connect to your Cortex account\n` +
       `/status — Check your connection\n` +
       `/recent — See your last 5 saved items\n\n` +
       `<b>To save anything:</b>\n` +
@@ -104,7 +113,7 @@ async function handleMessage(message) {
     return
   }
 
-  // ── /status command ──────────────────────────────────────
+  // /status
   if (text === '/status') {
     const { data } = await supabase
       .from('telegram_connections')
@@ -117,7 +126,6 @@ async function handleMessage(message) {
         .from('saved_items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', data.user_id)
-
       await sendMessage(chatId,
         `✅ <b>Connected to Cortex!</b>\n\n` +
         `🧠 Total saved: <b>${count || 0} items</b>\n` +
@@ -132,7 +140,7 @@ async function handleMessage(message) {
     return
   }
 
-  // ── /recent command ──────────────────────────────────────
+  // /recent
   if (text === '/recent') {
     const { data: conn } = await supabase
       .from('telegram_connections')
@@ -165,11 +173,10 @@ async function handleMessage(message) {
     return
   }
 
-  // ── Connect code (CORTEX-XXXXXX) ────────────────────────
+  // CORTEX-XXXXXX connect code
   if (text.startsWith('CORTEX-')) {
     const code = text.trim().toUpperCase()
 
-    // Find the pending connection
     const { data: pending } = await supabase
       .from('telegram_pending')
       .select('user_id')
@@ -185,14 +192,12 @@ async function handleMessage(message) {
       return
     }
 
-    // Save the connection
     await supabase.from('telegram_connections').upsert({
-      telegram_id: telegramUserId,
+      telegram_id:   telegramUserId,
       telegram_name: firstName,
-      user_id: pending.user_id,
+      user_id:       pending.user_id,
     })
 
-    // Delete the used code
     await supabase.from('telegram_pending').delete().eq('code', code)
 
     await sendMessage(chatId,
@@ -203,11 +208,10 @@ async function handleMessage(message) {
     return
   }
 
-  // ── URL / Link saving ────────────────────────────────────
+  // URL / link saving
   const url = extractURL(text)
 
   if (url) {
-    // Check if user is connected
     const { data: conn } = await supabase
       .from('telegram_connections')
       .select('user_id')
@@ -225,16 +229,13 @@ async function handleMessage(message) {
       return
     }
 
-    // Show saving indicator
     await sendMessage(chatId, `⏳ <b>Saving to your brain...</b>\n\n🔗 ${url}`)
 
     try {
-      // AI summarize
       const aiData = await summarizeWithAI(url, text.replace(url, '').trim())
 
-      // Save to Supabase
       const { error } = await supabase.from('saved_items').insert({
-        user_id: conn.user_id,
+        user_id:  conn.user_id,
         url,
         title:    aiData.title,
         summary:  aiData.summary,
@@ -245,7 +246,6 @@ async function handleMessage(message) {
 
       if (error) throw error
 
-      // Send notification in Supabase
       await supabase.from('notifications').insert({
         user_id: conn.user_id,
         title:   'Saved via Telegram! 📱',
@@ -253,7 +253,6 @@ async function handleMessage(message) {
         type:    'success',
       })
 
-      // Reply to user
       const categoryEmoji = {
         tech: '💻', health: '💪', finance: '💰', travel: '✈️', other: '📌'
       }
@@ -275,10 +274,9 @@ async function handleMessage(message) {
     return
   }
 
-  // ── Unknown message ──────────────────────────────────────
+  // Unknown message
   await sendMessage(chatId,
-    `🧠 Send me any link to save it to your Cortex brain!\n\n` +
-    `Or use /help to see all commands.`
+    `🧠 Send me any link to save it to your Cortex brain!\n\nOr use /help to see all commands.`
   )
 }
 
@@ -289,7 +287,7 @@ async function setWebhook() {
   console.log('✅ Telegram webhook set:', result)
 }
 
-// ── Process webhook update ───────────────────────────────────
+// ── Process update ───────────────────────────────────────────
 async function processUpdate(update) {
   if (update.message) {
     await handleMessage(update.message)
