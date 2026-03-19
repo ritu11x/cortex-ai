@@ -107,3 +107,5 @@ app.listen(PORT, async () => {
     console.warn('Webhook setup failed:', err.message)
   }
 })
+const { sendDailyDigest } = require('./dailyDigest')
+app.post('/digest/send-now', async (req, res) => { res.json({ ok: true }); sendDailyDigest() })

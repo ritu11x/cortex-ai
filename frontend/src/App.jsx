@@ -12,7 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import SplashScreen from './components/SplashScreen'
 import BookmarkletInstall from './pages/BookmarkletInstall'
 import ShareTarget from './pages/ShareTarget'
-
+import BrainstormBoards from './pages/BrainstormBoards'
 // ✅ Protimport BookmarkletInstall from './pages/BookmarkletInstall'ectedRoute
 function ProtectedRoute({ children }) {
   const [user, setUser] = useState(null)
@@ -104,7 +104,7 @@ function App() {
                   <PageWrapper><Profile /></PageWrapper>
                 </ProtectedRoute>
               } />
-
+            <Route path="/brainstorm" element={<BrainstormBoards user={user} />} />
             <Route path="/analytics"
               element={user
                 ? <PageWrapper><Analytics /></PageWrapper>

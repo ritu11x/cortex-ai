@@ -78,6 +78,7 @@ export default function Navbar({ user, onSave, onOpenChat, onOpenGraph }) {
     { icon: '✦', label: 'Brainstorm', desc: 'Chat with your brain', action: () => { onOpenChat?.(); setShowDropdown(false) } },
     { icon: '👤', label: 'My Profile', desc: 'Edit your info', action: () => { navigate('/profile'); setShowDropdown(false) } },
     { icon: '📊', label: 'Analytics', desc: 'Your usage stats', action: () => { navigate('/analytics'); setShowDropdown(false) } },
+    { label: 'Boards', icon: '🧠', action: () => navigate('/brainstorm') },
   ]
 
   return (
