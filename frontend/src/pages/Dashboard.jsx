@@ -40,21 +40,19 @@ export default function Dashboard({ user }) {
   const [editItem, setEditItem]             = useState(null)
   const [items, setItems]                   = useState([])
   const [loading, setLoading]               = useState(true)
+  const [paletteOpen, setPaletteOpen]       = useState(false)
+  const [milestone, setMilestone]           = useState(null)
+  const prevCountRef                        = useRef(0)
 
-  // ✅ Cmd+K palette
-  const [paletteOpen, setPaletteOpen] = useState(false)
+  // ✅ Select mode state
+  const [selectMode, setSelectMode]         = useState(false)
+  const [selectedIds, setSelectedIds]       = useState(new Set())
+  const [chatWithSelected, setChatWithSelected] = useState(false)
 
-  // ✅ Confetti milestone
-  const [milestone, setMilestone]   = useState(null)
-  const prevCountRef                = useRef(0)
-
-  // ── Fetch ────────────────────────────────────────────
   const fetchItems = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('saved_items')
-      .select('*')
-      .eq('user_id', user.id)
+      .from('saved_items').select('*').eq('user_id', user.id)
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
     if (!error) setItems(data || [])
@@ -70,19 +68,15 @@ export default function Dashboard({ user }) {
     }
   }, [user])
 
-  // ✅ Cmd+K keyboard shortcut
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setPaletteOpen(p => !p)
-      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setPaletteOpen(p => !p) }
+      if (e.key === 'Escape' && selectMode) { setSelectMode(false); setSelectedIds(new Set()) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [selectMode])
 
-  // ✅ Check milestone whenever items change
   useEffect(() => {
     if (items.length > 0) {
       const hit = checkMilestone(prevCountRef.current, items.length)
@@ -91,37 +85,24 @@ export default function Dashboard({ user }) {
     }
   }, [items.length])
 
-  // ✅ Listen for shares when dashboard is already open (PWA message)
-useEffect(() => {
-  const handler = (e) => {
-    setSharedContent(e.detail)
-    setShowSaveModal(true)
-  }
-  window.addEventListener('cortex:share', handler)
-  return () => window.removeEventListener('cortex:share', handler)
-}, [])
+  useEffect(() => {
+    const handler = (e) => { setSharedContent(e.detail); setShowSaveModal(true) }
+    window.addEventListener('cortex:share', handler)
+    return () => window.removeEventListener('cortex:share', handler)
+  }, [])
 
-  // ✅ CHANGE 4 — Handle shared content from bookmarklet (URL params) AND PWA share target (sessionStorage)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const openSave    = params.get('openSave')
-    const sharedUrl   = params.get('sharedUrl')
+    const openSave = params.get('openSave')
+    const sharedUrl = params.get('sharedUrl')
     const sharedTitle = params.get('sharedTitle')
-    const sharedNote  = params.get('sharedNote')
-
-    // From bookmarklet — comes via URL params directly
+    const sharedNote = params.get('sharedNote')
     if (openSave && sharedUrl) {
-      setSharedContent({
-        url:     sharedUrl,
-        title:   sharedTitle || '',
-        content: sharedNote  || '',
-      })
+      setSharedContent({ url: sharedUrl, title: sharedTitle || '', content: sharedNote || '' })
       setShowSaveModal(true)
       window.history.replaceState({}, '', '/dashboard')
       return
     }
-
-    // From PWA share target — comes via sessionStorage
     const shared = sessionStorage.getItem('sharedContent')
     if (openSave && shared) {
       setSharedContent(JSON.parse(shared))
@@ -131,7 +112,6 @@ useEffect(() => {
     }
   }, [])
 
-  // ── Handlers ─────────────────────────────────────────
   const handleDelete = async (item) => {
     if (!confirm(`Delete "${item.title}"?`)) return
     const { error } = await supabase.from('saved_items').delete().eq('id', item.id)
@@ -165,7 +145,24 @@ useEffect(() => {
     sendNotification(user.id, 'Export complete 📤', `${items.length} items exported as PDF.`, 'success')
   }
 
-  // ── Filter ───────────────────────────────────────────
+  // ✅ Toggle item selection
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // ✅ Brainstorm with selected items
+  const handleBrainstormSelected = () => {
+    if (selectedIds.size === 0) return
+    setChatWithSelected(true)
+    setShowChat(true)
+  }
+
+  const selectedItems = items.filter(i => selectedIds.has(i.id))
+
   const filtered = items.filter(item => {
     const matchSearch =
       item.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,7 +173,6 @@ useEffect(() => {
   })
   const sortedFiltered = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
 
-  // ── Display name ─────────────────────────────────────
   const rawName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'there'
   const firstName = rawName.split(/[\s._\d]/)[0].replace(/[^a-zA-Z]/g, '').toLowerCase()
   const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1)
@@ -184,7 +180,6 @@ useEffect(() => {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const greetingIcon = hour < 12 ? '☀️' : hour < 17 ? '⚡' : '🌙'
 
-  // ── Render ───────────────────────────────────────────
   return (
     <div className="bg-[#0a0a0f] min-h-screen text-white">
 
@@ -209,23 +204,25 @@ useEffect(() => {
           0%,100% { border-radius:65% 35% 50% 50%/45% 55% 45% 55%; transform:translate(0,0) scale(1); }
           50%  { border-radius:35% 65% 40% 60%/60% 40% 65% 35%; transform:translate(10px,-14px) scale(1.05); }
         }
+        @keyframes slide-up {
+          from { transform: translateY(100px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .select-bar { animation: slide-up 0.3s ease; }
       `}</style>
 
-      {/* Grid */}
       <div className="fixed inset-0 z-0 pointer-events-none" style={{
         backgroundImage: `linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
                           linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)`,
         backgroundSize: '60px 60px'
       }} />
 
-      {/* Blobs */}
       <div className="fixed z-0 pointer-events-none" style={{ top:'-80px', left:'-80px', width:'260px', height:'260px', background:'linear-gradient(135deg, rgba(124,58,237,0.55), rgba(167,139,250,0.35))', animation:'blob-1 10s ease-in-out infinite', filter:'blur(2px)', opacity:0.6 }} />
       <div className="fixed z-0 pointer-events-none" style={{ bottom:'-70px', right:'-70px', width:'240px', height:'240px', background:'linear-gradient(135deg, rgba(236,72,153,0.50), rgba(244,114,182,0.30))', animation:'blob-2 13s ease-in-out infinite', filter:'blur(2px)', opacity:0.55 }} />
       <div className="fixed z-0 pointer-events-none" style={{ top:'38%', right:'-50px', width:'180px', height:'180px', background:'linear-gradient(135deg, rgba(37,99,235,0.45), rgba(96,165,250,0.28))', animation:'blob-3 9s ease-in-out infinite', filter:'blur(2px)', opacity:0.5 }} />
       <div className="fixed z-0 pointer-events-none" style={{ top:'58%', left:'-40px', width:'160px', height:'160px', background:'linear-gradient(135deg, rgba(52,211,153,0.40), rgba(16,185,129,0.25))', animation:'blob-4 12s ease-in-out infinite', filter:'blur(2px)', opacity:0.45 }} />
 
       <div className="relative z-10 animate-page-in">
-
         <Navbar user={user} onSave={() => setShowSaveModal(true)} onOpenChat={() => setShowChat(true)} onOpenGraph={() => setView('graph')} />
 
         {/* Hero Header */}
@@ -244,17 +241,13 @@ useEffect(() => {
                     <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white">{displayName}</h1>
                     <span className="text-purple-400 text-2xl md:text-4xl font-black">.</span>
                     <span className="text-xs md:text-sm px-2 md:px-3 py-1 md:py-1.5 rounded-full border border-purple-500/20 text-purple-300/70 font-medium hidden sm:block"
-                      style={{ background:'rgba(124,58,237,0.08)' }}>
-                      ✦ cortex is thinking...
-                    </span>
+                      style={{ background:'rgba(124,58,237,0.08)' }}>✦ cortex is thinking...</span>
                   </div>
                   <p className="text-gray-600 text-xs md:text-sm mt-1">
                     {new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' })}
                   </p>
                 </div>
               </div>
-
-              {/* Stats + Cmd+K hint */}
               <div className="flex items-center gap-3">
                 <button onClick={() => setPaletteOpen(true)}
                   className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border border-white/5 text-gray-600 hover:text-gray-300 hover:border-white/10 transition text-xs"
@@ -262,7 +255,6 @@ useEffect(() => {
                   <span>⌕ Search everything</span>
                   <kbd className="border border-white/10 px-1.5 py-0.5 rounded text-xs text-gray-700">⌘K</kbd>
                 </button>
-
                 {items.length > 0 && (
                   <div className="border border-white/5 rounded-2xl px-4 md:px-6 py-3 md:py-4 hidden md:flex items-center gap-4 md:gap-6"
                     style={{ background:'linear-gradient(135deg, #0f0f1a, #0a0a12)' }}>
@@ -287,7 +279,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Mobile stats */}
             {items.length > 0 && (
               <div className="flex md:hidden gap-3 mb-4">
                 {[
@@ -304,7 +295,6 @@ useEffect(() => {
               </div>
             )}
 
-            {/* Motivational bar */}
             <div className="flex items-center gap-2 md:gap-3 px-4 md:px-5 py-3 md:py-4 rounded-2xl border border-white/5"
               style={{ background:'linear-gradient(135deg, rgba(124,58,237,0.05), rgba(236,72,153,0.03))' }}>
               <span className="text-yellow-400 text-base md:text-lg shrink-0">⚡</span>
@@ -337,10 +327,21 @@ useEffect(() => {
           </div>
 
           <div className="flex gap-2 md:gap-3 items-center overflow-x-auto pb-1 scrollbar-none">
-            <button onClick={() => setShowChat(true)}
+            <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); setShowChat(true) }}
               className="px-4 md:px-5 py-2.5 md:py-3.5 border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               <span className="text-purple-400">✦</span> Brainstorm
             </button>
+
+            {/* ✅ Select mode button */}
+            <button onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()) }}
+              className={`px-4 md:px-5 py-2.5 md:py-3.5 rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0 border ${
+                selectMode
+                  ? 'border-green-500/40 bg-green-500/15 text-green-300'
+                  : 'border-white/10 hover:bg-white/5 text-gray-400 hover:text-white'
+              }`}>
+              <span>☑️</span> <span className="hidden sm:inline">{selectMode ? 'Selecting...' : 'Select'}</span>
+            </button>
+
             <button onClick={() => setShowFeed(true)}
               className="px-4 md:px-5 py-2.5 md:py-3.5 border border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               <span className="text-yellow-400">✦</span> My Feed
@@ -349,14 +350,10 @@ useEffect(() => {
               className="px-4 md:px-5 py-2.5 md:py-3.5 border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               <span>📤</span> Export
             </button>
-
-            {/* ✅ Bookmarklet install button */}
             <button onClick={() => navigate('/bookmarklet')}
               className="px-4 md:px-5 py-2.5 md:py-3.5 border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-2xl text-sm md:text-base font-semibold transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               <span>🔖</span> <span className="hidden sm:inline">Browser Button</span>
             </button>
-
-            {/* Cmd+K mobile */}
             <button onClick={() => setPaletteOpen(true)}
               className="md:hidden px-4 py-2.5 border border-white/10 hover:bg-white/5 text-gray-500 rounded-2xl text-sm transition flex items-center gap-2 whitespace-nowrap active:scale-95 shrink-0">
               ⌕ Search
@@ -384,12 +381,12 @@ useEffect(() => {
         </div>
 
         {/* Content */}
-        <div className="px-4 md:px-8 pb-20 max-w-7xl mx-auto">
+        <div className="px-4 md:px-8 pb-32 max-w-7xl mx-auto">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 mt-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="rounded-2xl p-5 border border-white/5"
-                  style={{ background:'linear-gradient(135deg, #0f0f1a, #0a0a12)', animationDelay:`${i*80}ms` }}>
+                  style={{ background:'linear-gradient(135deg, #0f0f1a, #0a0a12)' }}>
                   <div className="skeleton h-4 w-24 mb-4 rounded-full" />
                   <div className="skeleton h-6 w-full mb-2" />
                   <div className="skeleton h-6 w-3/4 mb-4" />
@@ -426,14 +423,37 @@ useEffect(() => {
                 {sortedFiltered.filter(i => i.pinned).length > 0 && (
                   <span className="ml-2 text-yellow-400/60">· {sortedFiltered.filter(i => i.pinned).length} pinned</span>
                 )}
+                {selectMode && selectedIds.size > 0 && (
+                  <span className="ml-2 text-green-400">· {selectedIds.size} selected</span>
+                )}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {sortedFiltered.map((item, idx) => (
-                  <FeedCard key={item.id} item={item} index={idx}
-                    onClick={() => {}}
-                    onDelete={handleDelete}
-                    onPin={handlePin}
-                    onEdit={item => setEditItem(item)} />
+                  // ✅ Select mode wrapper
+                  <div key={item.id} className="relative">
+                    {selectMode && (
+                      <div
+                        className="absolute top-3 left-3 z-20 cursor-pointer"
+                        onClick={() => toggleSelect(item.id)}>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
+                          selectedIds.has(item.id)
+                            ? 'bg-purple-500 border-purple-500'
+                            : 'bg-black/50 border-white/30 hover:border-purple-400'
+                        }`}>
+                          {selectedIds.has(item.id) && <span className="text-white text-xs font-black">✓</span>}
+                        </div>
+                      </div>
+                    )}
+                    <div
+                      className={`transition ${selectMode ? 'cursor-pointer' : ''} ${selectedIds.has(item.id) ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl' : ''}`}
+                      onClick={selectMode ? () => toggleSelect(item.id) : undefined}>
+                      <FeedCard item={item} index={idx}
+                        onClick={selectMode ? () => toggleSelect(item.id) : () => {}}
+                        onDelete={handleDelete}
+                        onPin={handlePin}
+                        onEdit={item => setEditItem(item)} />
+                    </div>
+                  </div>
                 ))}
               </div>
             </>
@@ -441,35 +461,54 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* ✅ Floating select action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 select-bar">
+          <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border border-purple-500/30 shadow-2xl"
+            style={{ background: 'linear-gradient(135deg, #0f0f1a, #0a0a12)', boxShadow: '0 8px 40px rgba(124,58,237,0.3)' }}>
+            <span className="text-purple-400 font-black text-sm">{selectedIds.size} selected</span>
+            <div className="w-px h-5 bg-white/10" />
+            <button onClick={handleBrainstormSelected}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white transition active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+              ✦ Brainstorm with these
+            </button>
+            <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}
+              className="text-gray-600 hover:text-white text-sm transition px-2">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modals */}
       {showSaveModal && (
         <SaveModal user={user} prefill={sharedContent}
           onClose={() => { setShowSaveModal(false); setSharedContent(null) }}
           onSaved={() => {
-            setShowSaveModal(false)
-            setSharedContent(null)
-            fetchItems()
+            setShowSaveModal(false); setSharedContent(null); fetchItems()
             sendNotification(user.id, 'Item saved! ✦', 'Your item has been saved and AI is organizing it.', 'success')
           }} />
       )}
 
-      {showChat && <BrainChat items={items} onClose={() => setShowChat(false)} />}
+      {/* ✅ BrainChat — passes selected items if in select mode */}
+      {showChat && (
+        <BrainChat
+          items={chatWithSelected && selectedItems.length > 0 ? selectedItems : items}
+          isSelectedMode={chatWithSelected && selectedItems.length > 0}
+          selectedCount={selectedItems.length}
+          onClose={() => { setShowChat(false); setChatWithSelected(false) }}
+        />
+      )}
+
       {showFeed && <PersonalFeed items={items} onClose={() => setShowFeed(false)} />}
       {editItem && <EditModal item={editItem} onClose={() => setEditItem(null)} onSaved={handleEditSaved} />}
 
-      {/* ✅ Command Palette */}
-      <CommandPalette
-        isOpen={paletteOpen}
-        items={items}
+      <CommandPalette isOpen={paletteOpen} items={items}
         onSave={() => { setPaletteOpen(false); setShowSaveModal(true) }}
-        onClose={() => setPaletteOpen(false)}
-      />
+        onClose={() => setPaletteOpen(false)} />
 
-      {/* ✅ Confetti Milestone */}
-      <ConfettiBurst
-        milestone={milestone}
-        onDone={() => setMilestone(null)}
-      />
+      <ConfettiBurst milestone={milestone} onDone={() => setMilestone(null)} />
     </div>
   )
 }
