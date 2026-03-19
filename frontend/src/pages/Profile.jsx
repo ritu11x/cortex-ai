@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../services/supabase'
 import { useNavigate } from 'react-router-dom'
 import TelegramConnect from '../components/TelegramConnect'
+import  WhatsAppConnect from '../components/WhatsAppConnect'
 export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
@@ -324,6 +325,7 @@ export default function Profile() {
           </div>
         </div>
             {user && <TelegramConnect user={user} />}
+            {user && <WhatsAppConnect user={user} />}
         {/* Danger Zone */}
         <div className="border border-red-500/10 rounded-2xl p-6"
           style={{ background: 'rgba(239,68,68,0.03)' }}>
