@@ -430,7 +430,7 @@ export default function Dashboard({ user }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {sortedFiltered.map((item, idx) => (
                   // ✅ Select mode wrapper
-                  <div key={item.id} className="relative min-h-[280px]">
+                  <div key={item.id} className="relative" style={{ minHeight: '280px' }}>
                     {selectMode && (
                       <div
                         className="absolute top-3 left-3 z-20 cursor-pointer"
