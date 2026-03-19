@@ -429,30 +429,24 @@ export default function Dashboard({ user }) {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {sortedFiltered.map((item, idx) => (
-                  // ✅ Select mode wrapper
                   <div key={item.id} className="relative" style={{ minHeight: '280px' }}>
                     {selectMode && (
-                      <div
-                        className="absolute top-3 left-3 z-20 cursor-pointer"
-                        onClick={() => toggleSelect(item.id)}>
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
+                      <div className="absolute top-3 left-3 z-30 cursor-pointer"
+                        onClick={e => { e.stopPropagation(); toggleSelect(item.id) }}>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                           selectedIds.has(item.id)
                             ? 'bg-purple-500 border-purple-500'
-                            : 'bg-black/50 border-white/30 hover:border-purple-400'
+                            : 'bg-black/60 border-white/40 hover:border-purple-400'
                         }`}>
                           {selectedIds.has(item.id) && <span className="text-white text-xs font-black">✓</span>}
                         </div>
                       </div>
                     )}
-                    <div
-                      className={`transition ${selectMode ? 'cursor-pointer' : ''} ${selectedIds.has(item.id) ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-[#0a0a0f] rounded-2xl' : ''}`}
-                      onClick={selectMode ? () => toggleSelect(item.id) : undefined}>
-                      <FeedCard item={item} index={idx}
-                        onClick={selectMode ? () => toggleSelect(item.id) : () => {}}
-                        onDelete={handleDelete}
-                        onPin={handlePin}
-                        onEdit={item => setEditItem(item)} />
-                    </div>
+                    <FeedCard item={item} index={idx}
+                      onClick={selectMode ? () => toggleSelect(item.id) : () => {}}
+                      onDelete={handleDelete}
+                      onPin={handlePin}
+                      onEdit={item => setEditItem(item)} />
                   </div>
                 ))}
               </div>
