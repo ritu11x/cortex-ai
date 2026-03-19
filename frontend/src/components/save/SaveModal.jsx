@@ -9,7 +9,7 @@ const platforms = [
   { id: 'youtube', label: 'YouTube', icon: '▶', color: 'text-red-400', border: 'border-red-500/30', bg: 'bg-red-500/10' },
   { id: 'whatsapp', label: 'WhatsApp', icon: '💬', color: 'text-green-400', border: 'border-green-500/30', bg: 'bg-green-500/10' },
   { id: 'link', label: 'Any Link', icon: '↗', color: 'text-gray-400', border: 'border-gray-500/30', bg: 'bg-gray-500/10' },
-]
+]\
 
 const platformGuides = {
   instagram: {
