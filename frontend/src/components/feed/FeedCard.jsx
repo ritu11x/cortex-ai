@@ -40,7 +40,6 @@ const timeAgo = (date) => {
   return `${Math.floor(s / 86400)}d ago`
 }
 
-// ✅ Full screen detail modal
 function DetailModal({ item, onClose }) {
   const config = categoryConfig[(item.category || 'other').toLowerCase()] || categoryConfig.other
   const source = sourceConfig[item.source || item.source_type] || sourceConfig.link
@@ -48,53 +47,34 @@ function DetailModal({ item, onClose }) {
   const thumbnail = ytThumb || item.image || item.thumbnail || null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       <div className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 shadow-2xl"
         style={{ background: 'linear-gradient(135deg, #0f0f1a, #0a0a12)' }}
         onClick={e => e.stopPropagation()}>
-
-        {/* Thumbnail */}
         {thumbnail && (
           <div className="relative w-full overflow-hidden rounded-t-2xl" style={{ height: '220px' }}>
-            <img src={thumbnail} alt={item.title}
-              className="w-full h-full object-cover" />
+            <img src={thumbnail} alt={item.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f1a] via-transparent to-transparent" />
           </div>
         )}
-
         <div className="p-6">
-          {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs px-2.5 py-1 rounded-full border font-medium capitalize flex items-center gap-1.5 ${config.bg} ${config.color}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                {item.category || 'other'}
+                <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />{item.category || 'other'}
               </span>
               <span className={`text-xs px-2.5 py-1 rounded-full border border-white/5 flex items-center gap-1.5 ${source.color}`}
                 style={{ background: 'rgba(255,255,255,0.02)' }}>
                 {source.icon} {source.label}
               </span>
-              {item.pinned && (
-                <span className="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2.5 py-1 rounded-full">📌 Pinned</span>
-              )}
+              {item.pinned && <span className="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2.5 py-1 rounded-full">📌 Pinned</span>}
             </div>
-            <button onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition shrink-0">
-              ✕
-            </button>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition shrink-0">✕</button>
           </div>
-
-          {/* Title */}
-          <h2 className="text-white font-black text-xl leading-snug mb-3 tracking-tight">
-            {item.title || 'Untitled'}
-          </h2>
-
-          {/* AI Summary */}
+          <h2 className="text-white font-black text-xl leading-snug mb-3 tracking-tight">{item.title || 'Untitled'}</h2>
           {item.summary && !item.summary.startsWith('http') && (
-            <div className="border border-purple-500/15 rounded-xl p-4 mb-4"
-              style={{ background: 'rgba(124,58,237,0.05)' }}>
+            <div className="border border-purple-500/15 rounded-xl p-4 mb-4" style={{ background: 'rgba(124,58,237,0.05)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-purple-400 text-xs">✦</span>
                 <span className="text-purple-400 text-xs font-bold uppercase tracking-wide">AI Summary</span>
@@ -102,19 +82,13 @@ function DetailModal({ item, onClose }) {
               <p className="text-gray-300 text-sm leading-relaxed">{item.summary}</p>
             </div>
           )}
-
-          {/* Tags */}
           {item.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-4">
               {item.tags.map(tag => (
-                <span key={tag} className="text-xs text-purple-300/60 bg-purple-400/5 border border-purple-400/15 px-2.5 py-1 rounded-full">
-                  #{tag}
-                </span>
+                <span key={tag} className="text-xs text-purple-300/60 bg-purple-400/5 border border-purple-400/15 px-2.5 py-1 rounded-full">#{tag}</span>
               ))}
             </div>
           )}
-
-          {/* URL + time */}
           <div className="flex items-center justify-between pt-4 border-t border-white/5">
             <span className="text-xs text-gray-600">{timeAgo(item.created_at)}</span>
             {item.url && (
@@ -135,7 +109,7 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
   const [showMenu, setShowMenu]     = useState(false)
   const [flipped, setFlipped]       = useState(false)
   const [imgError, setImgError]     = useState(false)
-  const [showDetail, setShowDetail] = useState(false) // ✅ detail modal
+  const [showDetail, setShowDetail] = useState(false)
 
   const config = categoryConfig[(item.category || 'other').toLowerCase()] || categoryConfig.other
   const source = sourceConfig[item.source || item.source_type] || sourceConfig.link
@@ -144,41 +118,47 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
   const thumbnail = !imgError && (ytThumb || item.image || item.thumbnail || null)
   const summary = item.summary && !item.summary.startsWith('http') ? item.summary : null
 
+  // ✅ KEY FIX: explicit height so flip card works correctly
+  const cardHeight = thumbnail ? 340 : 280
+
   return (
     <>
-      <style>{`
-        .flip-card { perspective: 1200px; }
-        .flip-inner {
-          position: relative; width: 100%; height: 100%;
-          transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-          transform-style: preserve-3d;
-        }
-        .flip-card.flipped .flip-inner { transform: rotateY(180deg); }
-        .flip-front, .flip-back {
-          position: absolute; inset: 0;
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-          border-radius: 1rem; overflow: hidden;
-        }
-        .flip-back { transform: rotateY(180deg); }
-        .flip-card { min-height: 280px; }
-      `}</style>
-
-      {/* ✅ Detail modal */}
       {showDetail && <DetailModal item={item} onClose={() => setShowDetail(false)} />}
 
-      <div className={`flip-card animate-card ${flipped ? 'flipped' : ''}`}
-        style={{ animationDelay: `${index * 60}ms` }}>
-        <div className="flip-inner">
+      {/* ✅ Outer wrapper with explicit height — this fixes the invisible card bug */}
+      <div
+        className={`animate-card ${flipped ? 'flipped' : ''}`}
+        style={{
+          animationDelay: `${index * 60}ms`,
+          perspective: '1200px',
+          height: `${cardHeight}px`,
+          position: 'relative',
+        }}>
+
+        {/* Flip inner */}
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          transition: 'transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)',
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}>
 
           {/* ── FRONT ── */}
-          <div className="flip-front group cursor-pointer"
+          <div
+            className="group cursor-pointer"
             style={{
+              position: 'absolute', inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              borderRadius: '1rem',
+              overflow: 'hidden',
               background: 'linear-gradient(135deg, #0f0f1a, #0a0a12)',
               border: '1px solid rgba(255,255,255,0.05)',
               transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
             }}
-            onClick={() => setShowDetail(true)} // ✅ opens detail modal
+            onClick={() => setShowDetail(true)}
             onMouseEnter={e => {
               e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'
               e.currentTarget.style.boxShadow = `0 8px 40px ${config.glow}`
@@ -228,37 +208,27 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
                   <div className="absolute right-0 top-9 z-20 w-44 border border-white/10 rounded-xl overflow-hidden shadow-2xl"
                     style={{ background: '#0f0f1a' }}>
                     <button onClick={() => { setShowDetail(true); setShowMenu(false) }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition text-left">
-                      👁️ View details
-                    </button>
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition text-left">👁️ View details</button>
                     <button onClick={() => { onPin?.(item); setShowMenu(false) }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition text-left">
                       📌 {item.pinned ? 'Unpin' : 'Pin to top'}
                     </button>
                     <button onClick={() => { onEdit?.(item); setShowMenu(false) }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition text-left">
-                      ✏️ Edit
-                    </button>
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 transition text-left">✏️ Edit</button>
                     <div className="border-t border-white/5" />
                     <button onClick={() => { onDelete?.(item); setShowMenu(false) }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition text-left">
-                      🗑️ Delete
-                    </button>
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition text-left">🗑️ Delete</button>
                   </div>
                 </>
               )}
             </div>
 
             <div className="p-5">
-              {/* Badges */}
               {!thumbnail && (
                 <div className="flex items-center gap-2 flex-wrap mb-3">
-                  {item.pinned && (
-                    <span className="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2.5 py-1 rounded-full">📌 Pinned</span>
-                  )}
+                  {item.pinned && <span className="text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2.5 py-1 rounded-full">📌 Pinned</span>}
                   <span className={`text-xs px-2.5 py-1 rounded-full border font-medium capitalize flex items-center gap-1.5 ${config.bg} ${config.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                    {item.category || 'other'}
+                    <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />{item.category || 'other'}
                   </span>
                   <span className={`text-xs px-2.5 py-1 rounded-full border border-white/5 flex items-center gap-1.5 ${source.color}`}
                     style={{ background: 'rgba(255,255,255,0.02)' }}>
@@ -269,8 +239,7 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
               {thumbnail && (
                 <div className="flex items-center gap-2 mb-3 mt-1">
                   <span className={`text-xs px-2.5 py-1 rounded-full border font-medium capitalize flex items-center gap-1.5 ${config.bg} ${config.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                    {item.category || 'other'}
+                    <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />{item.category || 'other'}
                   </span>
                 </div>
               )}
@@ -278,11 +247,7 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
               <h3 className="text-white font-black text-lg leading-snug mb-2 tracking-tight line-clamp-2 group-hover:text-purple-100 transition-colors">
                 {item.title || 'Untitled'}
               </h3>
-
-              {summary && (
-                <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">{summary}</p>
-              )}
-
+              {summary && <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">{summary}</p>}
               {item.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {item.tags.slice(0, 3).map(tag => (
@@ -291,7 +256,6 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
                   {item.tags.length > 3 && <span className="text-xs text-gray-700 px-1">+{item.tags.length - 3}</span>}
                 </div>
               )}
-
               {item.url && (
                 <a href={item.url} target="_blank" rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
@@ -299,12 +263,9 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
                   <span>↗</span><span className="truncate max-w-[180px]">{cleanUrl(item.url)}</span>
                 </a>
               )}
-
-              {/* Bottom row */}
               <div className="flex justify-between items-center pt-3 border-t border-white/[0.04]">
                 <span className="text-xs text-gray-700">{timeAgo(item.created_at)}</span>
-                <button
-                  onClick={e => { e.stopPropagation(); setFlipped(true) }}
+                <button onClick={e => { e.stopPropagation(); setFlipped(true) }}
                   className="flex items-center gap-1 text-xs text-gray-700 hover:text-purple-400 transition-colors group/flip">
                   <span className="group-hover/flip:rotate-180 transition-transform duration-300 inline-block">✦</span>
                   <span>AI Summary</span>
@@ -313,9 +274,15 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
             </div>
           </div>
 
-          {/* ── BACK — AI Summary ── */}
-          <div className="flip-back flex flex-col p-5"
+          {/* ── BACK ── */}
+          <div className="flex flex-col p-5"
             style={{
+              position: 'absolute', inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              borderRadius: '1rem',
+              overflow: 'hidden',
+              transform: 'rotateY(180deg)',
               background: 'linear-gradient(135deg, #0f0f1a, #0d0d1e)',
               border: '1px solid rgba(124,58,237,0.3)',
               boxShadow: '0 0 40px rgba(124,58,237,0.1)',
@@ -329,24 +296,14 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
                 <span className="text-purple-400 text-xs font-bold tracking-wide uppercase">AI Summary</span>
               </div>
               <button onClick={e => { e.stopPropagation(); setFlipped(false) }}
-                className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition text-xs">
-                ↩
-              </button>
+                className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition text-xs">↩</button>
             </div>
-
-            <h3 className="text-white font-black text-base leading-snug mb-3 tracking-tight line-clamp-2">
-              {item.title || 'Untitled'}
-            </h3>
-
-            <div className="flex-1 border border-purple-500/10 rounded-xl p-4 mb-4"
-              style={{ background: 'rgba(124,58,237,0.05)' }}>
-              {summary ? (
-                <p className="text-gray-300 text-sm leading-relaxed">{summary}</p>
-              ) : (
-                <p className="text-gray-600 text-sm italic">No AI summary available.</p>
-              )}
+            <h3 className="text-white font-black text-base leading-snug mb-3 tracking-tight line-clamp-2">{item.title || 'Untitled'}</h3>
+            <div className="flex-1 border border-purple-500/10 rounded-xl p-4 mb-4" style={{ background: 'rgba(124,58,237,0.05)' }}>
+              {summary
+                ? <p className="text-gray-300 text-sm leading-relaxed">{summary}</p>
+                : <p className="text-gray-600 text-sm italic">No AI summary available.</p>}
             </div>
-
             {item.tags?.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 {item.tags.map(tag => (
@@ -354,17 +311,12 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
                 ))}
               </div>
             )}
-
             <div className="flex justify-between items-center pt-3 border-t border-white/[0.04]">
-              <span className={`text-xs flex items-center gap-1 ${source.color}`}>
-                {source.icon} {source.label}
-              </span>
+              <span className={`text-xs flex items-center gap-1 ${source.color}`}>{source.icon} {source.label}</span>
               {item.url && (
                 <a href={item.url} target="_blank" rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1">
-                  Open ↗
-                </a>
+                  className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1">Open ↗</a>
               )}
             </div>
           </div>
@@ -374,126 +326,3 @@ export default function FeedCard({ item, onClick, onDelete, onPin, onEdit, index
     </>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
