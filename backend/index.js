@@ -11,8 +11,9 @@ const app = express()
 
 // ── Middleware ───────────────────────────────────────────────
 app.use(cors())
+// ✅ Must parse urlencoded BEFORE json for Twilio to work
+app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
-app.use(express.urlencoded({ extended: false })) // ✅ needed for Twilio form data
 
 // ── Existing routes ──────────────────────────────────────────
 const fetchUrlRoute = require('./routes/fetchUrl')
@@ -62,11 +63,17 @@ app.post('/telegram/generate-code', async (req, res) => {
 })
 
 // ── WhatsApp: webhook ────────────────────────────────────────
+// ✅ Twilio sends form-urlencoded data, log it to debug
 app.post('/whatsapp/webhook', async (req, res) => {
   res.sendStatus(200)
   try {
-    const from = req.body.From
-    const body = req.body.Body
+    console.log('WhatsApp incoming:', JSON.stringify(req.body))
+    const from = req.body?.From || req.body?.from
+    const body = req.body?.Body || req.body?.body || ''
+    if (!from) {
+      console.log('No From field — body keys:', Object.keys(req.body || {}))
+      return
+    }
     await handleWhatsApp(from, body)
   } catch (err) {
     console.error('WhatsApp webhook error:', err)
